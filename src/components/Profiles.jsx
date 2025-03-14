@@ -2,18 +2,16 @@ import { Fragment, useEffect, useState } from "react";
 import { Card } from "antd";
 import { Tree } from "antd";
 const Profiles = (props) => {
+  const { setSelectProfiles, selectProfiles } = props;
   const [profilesData, setProfiles] = useState([]);
-
   useEffect(() => {
     window.electron.ipcRenderer.send("get-chrome-profiles");
 
     window.electron.ipcRenderer.on("chrome-profiles", (event, data) => {
       const treeData = data.map((profile) => {
-        console.log(1, profile);
-
         return {
           title: profile.profileName,
-          key: profile.pid,
+          key: profile.profileName,
           data: profile
         };
       });
@@ -25,11 +23,9 @@ const Profiles = (props) => {
     };
   }, []);
 
-  const onSelect = (selectedKeys, info) => {
-    console.log("selected", selectedKeys, info);
-  };
   const onCheck = (checkedKeys, info) => {
-    console.log("onCheck", checkedKeys, info);
+    const selectedProfiles = info.checkedNodes.map((node) => node.data);
+    setSelectProfiles(selectedProfiles);
   };
 
   return (
@@ -39,9 +35,9 @@ const Profiles = (props) => {
           checkable
           selectable={false}
           defaultCheckedKeys={[]}
-          onSelect={onSelect}
           onCheck={onCheck}
           treeData={profilesData}
+          switcherIcon={false}
         />
       </Card>
     </Fragment>

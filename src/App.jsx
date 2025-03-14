@@ -7,14 +7,16 @@ function App() {
   return (
     <Fragment>
       <Row>
-        <Col span={6}>
+        <Col span={8}>
           <Profiles
             selectedProfiles={selectedProfiles}
             setSelectProfiles={setSelectProfiles}
           />
         </Col>
-        <Col span={18}>
-          <Actions />
+        <Col span={16}>
+          <Actions
+            selectedProfiles={selectedProfiles}
+          />
         </Col>
       </Row>
     </Fragment>

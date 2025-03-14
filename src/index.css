@@ -1,0 +1,36 @@
+body{
+    margin: 0 !important;
+}
+.block-title{
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px !important;
+    margin-top: 5px !important;
+}
+.sub-title{
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px !important;
+    margin-top: 2px !important;
+}
+
+.ant-card-body{
+    padding: 5px 10px !important;
+}
+
+button, input{
+    margin-left: 5px;
+    margin-bottom: 3px !important;
+}
+
+.ant-tree-list .ant-tree-switcher{
+    display: none !important;
+}
+
+.d-flex{
+    display: flex;
+}
+
+.d-block{
+    display: block;
+}

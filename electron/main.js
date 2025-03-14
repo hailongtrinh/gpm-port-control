@@ -13,6 +13,9 @@ app.whenReady().then(() => {
   mainWindow = new BrowserWindow({
     width: 600,
     height: 400,
+    minWidth: 550,
+    resizable: true,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       nodeIntegration: false,
@@ -21,8 +24,6 @@ app.whenReady().then(() => {
     }
   });
 
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
+  mainWindow.webContents.openDevTools();
   mainWindow.loadURL("http://localhost:5173");
 });
