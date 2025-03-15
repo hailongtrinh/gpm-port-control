@@ -10,7 +10,7 @@ const Actions = (props) => {
   const [navigateUrlValue, setNavigateUrlValue] = useState("");
   const [delayValue, setDelayValue] = useState("");
   const [doActionSerial, setDoActionSerial] = useState(false);
-  const [typeSelector, setTypeSelector] = useState("id");
+  const [typeSelector, setTypeSelector] = useState("xpath");
   const [typeTarget, setTypeTarget] = useState("");
   const [typeValue, setTypeValue] = useState("");
   const handleFileUpload = (event) => {
@@ -161,7 +161,7 @@ const Actions = (props) => {
         >
           <Col span={7}>
             <Select
-              defaultValue="id"
+              defaultValue="xpath"
               style={{
                 width: "90%"
               }}
@@ -169,6 +169,10 @@ const Actions = (props) => {
                 setTypeSelector(value);
               }}
               options={[
+                {
+                  value: "xpath",
+                  label: "Xpath"
+                },
                 {
                   value: "id",
                   label: "ID"
@@ -178,8 +182,8 @@ const Actions = (props) => {
                   label: "Name"
                 },
                 {
-                  value: "xpath",
-                  label: "Xpath"
+                  value: "css",
+                  label: "CSS"
                 }
               ]}
             />

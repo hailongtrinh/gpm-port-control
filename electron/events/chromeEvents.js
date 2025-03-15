@@ -224,44 +224,95 @@ const openUrl = async (
   }
 };
 
-const _typing = async (profile, text, targetSelector, targetValue) => {
-  if (!connectedBrowsers[profile.profileName]) {
-    await connectBrowser(profile.profileName, profile.remoteIP);
-  }
-  const browser = connectedBrowsers[profile.profileName];
-  let page;
-
-  const pages = await browser.pages();
-  for (const p of pages) {
-    const isActive = await p.evaluate(() => document.hasFocus());
-    if (isActive) {
-      page = p;
-      break;
+const _typing = async (profile, text, selectorType, selectorValue) => {
+  try {
+    if (!connectedBrowsers[profile.profileName]) {
+      await connectBrowser(profile.profileName, profile.remoteIP);
     }
-  }
+    const browser = connectedBrowsers[profile.profileName];
+    let page;
 
-  if (!page) {
-    console.log("⚠️ Không tìm thấy tab active, dùng tab cuối cùng.");
-    page = pages[pages.length - 1] || (await browser.newPage());
-  }
+    const pages = await browser.pages();
+    if (pages.length === 0) {
+      console.error("⚠️ Không có tab nào mở. Mở tab mới...");
+      page = await browser.newPage();
+    } else {
+      for (const p of pages) {
+        const isActive = await p.evaluate(() => document.hasFocus());
+        if (isActive) {
+          page = p;
+          break;
+        }
+      }
+      if (!page) page = pages[pages.length - 1]; // Nếu không tìm thấy tab active, lấy tab cuối cùng
+    }
 
-  await page.bringToFront(); // Đưa tab lên trước
-  await page.waitForSelector(targetSelector); // Chờ cho đến khi selector xuất hiện
-  await page.type(targetSelector, text); // Gõ text vào selector
-  console.log(
-    `✅ Đã gõ ${text} vào ${targetSelector} của ${profile.profileName}`
-  );
-  await page.evaluate(
-    (targetSelector, targetValue) => {
-      document.querySelector(targetSelector).value = targetValue;
-    },
-    targetSelector,
-    targetValue
-  );
-  console.log(
-    `✅ Đã gõ ${targetValue} vào ${targetSelector} của ${profile.profileName}`
-  );
+    await page.bringToFront();
+
+    // Chống bị phát hiện là bot
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+    });
+
+    let elementHandle = null;
+
+    // 🔹 Tìm phần tử theo loại selector
+    switch (selectorType) {
+      case "xpath":
+        console.log(`🔍 Đang tìm XPath: ${selectorValue}`);
+        elementHandle = await page.evaluateHandle((xpath) => {
+          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+          return result.singleNodeValue;
+        }, selectorValue);
+        break;
+      case "id":
+        console.log(`🔍 Đang tìm ID: ${selectorValue}`);
+        elementHandle = await page.$(`#${selectorValue}`);
+        break;
+      case "name":
+        console.log(`🔍 Đang tìm Name: ${selectorValue}`);
+        elementHandle = await page.$(`[name="${selectorValue}"]`);
+        break;
+      case "css":
+        console.log(`🔍 Đang tìm CSS Selector: ${selectorValue}`);
+        elementHandle = await page.$(selectorValue);
+        break;
+      default:
+        console.error(`❌ Loại selector không hợp lệ: ${selectorType}`);
+        return;
+    }
+
+    if (!elementHandle) {
+      console.error(`❌ Không tìm thấy phần tử: ${selectorType} = "${selectorValue}"`);
+      return;
+    }
+
+    // Mô phỏng di chuột trước khi click
+    const box = await elementHandle.boundingBox();
+    if (box) {
+      await page.mouse.move(
+        box.x + box.width / 2 + (Math.random() * 5),
+        box.y + box.height / 2 + (Math.random() * 5)
+      );
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 300 + 200));
+    }
+
+    // Click vào input trước khi nhập
+    await elementHandle.click({ clickCount: 3, delay: Math.random() * 100 + 50 }); // Chọn toàn bộ nội dung
+    await page.keyboard.press("Backspace"); // Xóa sạch nội dung hiện tại
+
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 300 + 200));
+
+    // Nhập text mới
+    await elementHandle.type(text, { delay: Math.random() * 200 + 50 });
+
+    console.log(`✅ Đã nhập "${text}" vào ${selectorType} = "${selectorValue}"`);
+
+  } catch (error) {
+    console.error(`❌ Lỗi khi nhập liệu vào ${selectorType} = "${selectorValue}":`, error);
+  }
 };
+
 
 const typing = async (
   selectedProfiles,
