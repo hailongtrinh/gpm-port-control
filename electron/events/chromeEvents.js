@@ -224,7 +224,13 @@ const openUrl = async (
   }
 };
 
-const _typing = async (profile, text, selectorType, selectorValue) => {
+const _typing = async (
+  profile,
+  text,
+  selectorType,
+  selectorValue,
+  pastingMode = true
+) => {
   try {
     if (!connectedBrowsers[profile.profileName]) {
       await connectBrowser(profile.profileName, profile.remoteIP);
@@ -261,7 +267,13 @@ const _typing = async (profile, text, selectorType, selectorValue) => {
       case "xpath":
         console.log(`🔍 Đang tìm XPath: ${selectorValue}`);
         elementHandle = await page.evaluateHandle((xpath) => {
-          const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+          const result = document.evaluate(
+            xpath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          );
           return result.singleNodeValue;
         }, selectorValue);
         break;
@@ -283,7 +295,9 @@ const _typing = async (profile, text, selectorType, selectorValue) => {
     }
 
     if (!elementHandle) {
-      console.error(`❌ Không tìm thấy phần tử: ${selectorType} = "${selectorValue}"`);
+      console.error(
+        `❌ Không tìm thấy phần tử: ${selectorType} = "${selectorValue}"`
+      );
       return;
     }
 
@@ -291,60 +305,92 @@ const _typing = async (profile, text, selectorType, selectorValue) => {
     const box = await elementHandle.boundingBox();
     if (box) {
       await page.mouse.move(
-        box.x + box.width / 2 + (Math.random() * 5),
-        box.y + box.height / 2 + (Math.random() * 5)
+        box.x + box.width / 2 + Math.random() * 5,
+        box.y + box.height / 2 + Math.random() * 5
       );
-      await new Promise((resolve) => setTimeout(resolve, Math.random() * 300 + 200));
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.random() * 300 + 200)
+      );
     }
 
     // Click vào input trước khi nhập
-    await elementHandle.click({ clickCount: 3, delay: Math.random() * 100 + 50 }); // Chọn toàn bộ nội dung
+    await elementHandle.click({
+      clickCount: 3,
+      delay: Math.random() * 100 + 50
+    }); // Chọn toàn bộ nội dung
     await page.keyboard.press("Backspace"); // Xóa sạch nội dung hiện tại
 
-    await new Promise((resolve) => setTimeout(resolve, Math.random() * 300 + 200));
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.random() * 300 + 200)
+    );
 
-    // Nhập text mới
-    await elementHandle.type(text, { delay: Math.random() * 200 + 50 });
-
-    console.log(`✅ Đã nhập "${text}" vào ${selectorType} = "${selectorValue}"`);
-
+    if (pastingMode) {
+      // 📝 Dán nội dung trực tiếp bằng evaluate()
+      console.log(
+        `📋 Paste "${text}" vào ${selectorType} = "${selectorValue}"`
+      );
+      await page.evaluate(
+        (el, value) => {
+          el.value = value;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        elementHandle,
+        text
+      );
+    } else {
+      // ⌨️ Gõ từng ký tự (mặc định)
+      console.log(
+        `⌨️ Typing "${text}" vào ${selectorType} = "${selectorValue}"`
+      );
+      await elementHandle.type(text, { delay: Math.random() * 200 + 50 });
+    }
   } catch (error) {
-    console.error(`❌ Lỗi khi nhập liệu vào ${selectorType} = "${selectorValue}":`, error);
+    console.error(
+      `❌ Lỗi khi nhập liệu vào ${selectorType} = "${selectorValue}":`,
+      error
+    );
   }
 };
-
 
 const typing = async (
   selectedProfiles,
   text,
   targetSelector,
   targetValue,
+  pastingMode = true,
   isSerial = false,
   delay = false
 ) => {
+  let textValue = text;
   if (isSerial) {
     for (const profile of selectedProfiles) {
-      await _typing(profile, text, targetSelector, targetValue);
+      if (typeof text === "object") {
+        textValue = text?.[profile.profileName] ?? "";
+      }
+      await _typing(
+        profile,
+        textValue,
+        targetSelector,
+        targetValue,
+        pastingMode
+      );
       if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
     }
     return;
   } else {
     selectedProfiles.forEach(async (profile) => {
-      _typing(profile, text, targetSelector, targetValue);
+      if (typeof text === "object") {
+        textValue = text?.[profile.profileName] ?? "";
+      }
+      _typing(profile, textValue, targetSelector, targetValue, pastingMode);
     });
     return;
   }
 };
 
 ipcMain.on("actions", (event, data) => {
-  const {
-    action,
-    actionData,
-    doActionSerial,
-    delayValue,
-    selectedProfiles,
-    excelData
-  } = data;
+  const { action, actionData, doActionSerial, delayValue, selectedProfiles } =
+    data;
   console.log(data);
 
   switch (action) {
@@ -363,11 +409,13 @@ ipcMain.on("actions", (event, data) => {
       const text = actionData.text;
       const targetSelector = actionData.targetSelector;
       const targetValue = actionData.targetValue;
+      const pastingMode = actionData.pastingMode;
       typing(
         selectedProfiles,
         text,
         targetSelector,
         targetValue,
+        pastingMode,
         doActionSerial,
         delayValue
       );

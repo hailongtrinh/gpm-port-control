@@ -1,8 +1,19 @@
 import { DownOutlined } from "@ant-design/icons";
-import { Button, Card, Col, Dropdown, Select, Input, Row, Space } from "antd";
-import { Fragment, useState } from "react";
+import {
+  Button,
+  Card,
+  Col,
+  Dropdown,
+  Select,
+  Input,
+  Row,
+  Space,
+  Switch
+} from "antd";
+import { Fragment, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { Checkbox } from "antd";
+import { set } from "lodash";
 const Actions = (props) => {
   const { selectedProfiles } = props;
   const [excelData, setExcelData] = useState([]);
@@ -10,9 +21,11 @@ const Actions = (props) => {
   const [navigateUrlValue, setNavigateUrlValue] = useState("");
   const [delayValue, setDelayValue] = useState("");
   const [doActionSerial, setDoActionSerial] = useState(false);
+  const [pastingMode, setPastingMode] = useState(true);
   const [typeSelector, setTypeSelector] = useState("xpath");
   const [typeTarget, setTypeTarget] = useState("");
   const [typeValue, setTypeValue] = useState("");
+  const [alwayOnTop, setAlwayOnTop] = useState(false);
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -41,14 +54,41 @@ const Actions = (props) => {
       doActionSerial,
       delayValue,
       actionData,
-      selectedProfiles,
-      excelData
+      selectedProfiles
     });
   };
 
+  useEffect(() => {
+    window.electron.ipcRenderer.send("get-config");
+
+    window.electron.ipcRenderer.on("config-data", (event, data) => {
+      setAlwayOnTop(data.window?.alwaysOnTop);
+    });
+
+    return () => {
+      window.electron.ipcRenderer.removeAllListeners("config-data");
+    };
+  }, []);
+
   return (
     <Fragment>
-      <Card size="small" title="Actions">
+      <Card
+        size="small"
+        title="Actions"
+        extra={
+          <Fragment>
+            <Switch
+              checkedChildren="On top"
+              unCheckedChildren="On top"
+              checked={alwayOnTop}
+              onChange={() => {
+                setAlwayOnTop(!alwayOnTop);
+                window.electron.ipcRenderer.send("toggle-always-on-top");
+              }}
+            />
+          </Fragment>
+        }
+      >
         <div
           className="d-flex"
           style={{
@@ -69,7 +109,8 @@ const Actions = (props) => {
 
         <Row
           style={{
-            alignItems: "center"
+            alignItems: "center",
+            justifyContent: "space-between"
           }}
         >
           <Col span={8}>
@@ -153,7 +194,27 @@ const Actions = (props) => {
             </div>
           </Col>
         </Row>
-        <p className="sub-title">Typing Data</p>
+        <Row
+          style={{
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <Col span={8}>
+            <p className="sub-title">Typing Data</p>
+          </Col>
+          <Col span={10}>
+            <Checkbox
+              onChange={() => {
+                setPastingMode(!pastingMode);
+              }}
+              checked={pastingMode}
+            >
+              Pasting mode
+            </Checkbox>
+          </Col>
+        </Row>
+
         <Row
           style={{
             marginBottom: "5px"
@@ -216,20 +277,36 @@ const Actions = (props) => {
                 type="primary"
                 onClick={() => {
                   handleActions("typing", {
+                    pastingMode,
                     text: typeValue,
                     targetSelector: typeSelector,
                     targetValue: typeTarget
                   });
                 }}
               >
-                Type
+                {pastingMode ? "Paste" : "Type"}
               </Button>
             </Space.Compact>
             {pasteButtonList.map((buttonName, index) => {
               return (
                 <Button
                   onClick={() => {
-                    handleActions("typing", buttonName);
+                    const textData = {};
+                    for (const profile of selectedProfiles) {
+                      const profileData = excelData.find(
+                        (data) =>
+                          data?.Profile === profile.profileName ||
+                          data?.profile === profile.profileName
+                      );
+
+                      textData[profile.profileName] = profileData[buttonName];
+                    }
+                    handleActions("typing", {
+                      pastingMode,
+                      text: textData,
+                      targetSelector: typeSelector,
+                      targetValue: typeTarget
+                    });
                   }}
                   size="small"
                   key={index}

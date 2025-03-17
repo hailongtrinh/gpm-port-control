@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"yarn start-electron\" \"yarn start-react\"",
-    "start-electron": "electronmon electron/main.js",
+    "start-electron": "electron electron/main.js",
     "start-react": "vite"
   },
   "dependencies": {
@@ -18,6 +18,7 @@
     "puppeteer-core": "^24.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-perfect-scrollbar": "^1.5.8",
     "wait-on": "^8.0.2",
     "xlsx": "^0.18.5"
   },
@@ -32,5 +33,13 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
     "vite": "^6.2.0"
+  },
+  "electronmon": {
+    "ignore": [
+      "electron/config.json"
+    ],
+    "watch": [
+      "electron/**/*.js"
+    ]
   }
 }
