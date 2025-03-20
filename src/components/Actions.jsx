@@ -1,4 +1,4 @@
-import { CloseOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
+import { CloseOutlined, PlusOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -191,7 +191,7 @@ const Actions = (props) => {
                   handleActions("newtab");
                 }}
               >
-                New Tab
+                <PlusOutlined />
               </Button>
               <Button
                 size="small"
@@ -199,7 +199,7 @@ const Actions = (props) => {
                   handleActions("close_current_tab");
                 }}
               >
-                Close current tab
+                Close tab
               </Button>
             </div>
           </Col>
