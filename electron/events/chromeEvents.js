@@ -388,6 +388,149 @@ const typing = async (
   }
 };
 
+const copyData = {};
+
+const _interact = async (
+  event,
+  profile,
+  action,
+  targetSelector,
+  targetValue
+) => {
+  try {
+    if (!connectedBrowsers[profile.profileName]) {
+      await connectBrowser(profile.profileName, profile.remoteIP);
+    }
+    const browser = connectedBrowsers[profile.profileName];
+    let page;
+
+    const pages = await browser.pages();
+    if (pages.length === 0) {
+      console.error("⚠️ Không có tab nào mở. Mở tab mới...");
+      page = await browser.newPage();
+    } else {
+      for (const p of pages) {
+        const isActive = await p.evaluate(() => document.hasFocus());
+        if (isActive) {
+          page = p;
+          break;
+        }
+      }
+      if (!page) page = pages[pages.length - 1]; // Nếu không tìm thấy tab active, lấy tab cuối cùng
+    }
+
+    await page.bringToFront();
+
+    // Chống bị phát hiện là bot
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+    });
+
+    let elementHandle = null;
+
+    // 🔹 Tìm phần tử theo loại selector
+    switch (targetSelector) {
+      case "xpath":
+        console.log(`🔍 Đang tìm XPath: ${targetValue}`);
+        elementHandle = await page.evaluateHandle((xpath) => {
+          const result = document.evaluate(
+            xpath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          );
+          return result.singleNodeValue;
+        }, targetValue);
+        break;
+      case "id":
+        console.log(`🔍 Đang tìm ID: ${targetValue}`);
+        elementHandle = await page.$(`#${targetValue}`);
+        break;
+      case "name":
+        console.log(`🔍 Đang tìm Name: ${targetValue}`);
+        elementHandle = await page.$(`[name="${targetValue}"]`);
+        break;
+      case "css":
+        console.log(`🔍 Đang tìm CSS Selector: ${targetValue}`);
+        elementHandle = await page.$(targetValue);
+        break;
+      default:
+        console.error(`❌ Loại selector không hợp lệ: ${targetSelector}`);
+        return;
+    }
+
+    if (!elementHandle) {
+      console.error(
+        `❌ Không tìm thấy phần tử: ${selectorType} = "${selectorValue}"`
+      );
+      return;
+    }
+
+    // Mô phỏng di chuột trước khi click
+    const box = await elementHandle.boundingBox();
+    if (box) {
+      await page.mouse.move(
+        box.x + box.width / 2 + Math.random() * 5,
+        box.y + box.height / 2 + Math.random() * 5
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.random() * 300 + 200)
+      );
+    }
+
+    switch (action) {
+      case "copy":
+        const copiedText = await page.evaluate(
+          (el) => el.innerText || el.textContent,
+          elementHandle
+        );
+        copyData[profile.profileName] = copiedText;
+        console.log(
+          `[${profile.profileName}]📋 Đã copy nội dung: "${copiedText}"`
+        );
+        event.reply("copy-data", copyData);
+        break;
+      case "click":
+        await elementHandle.click();
+        console.log(`✅ Đã click vào ${targetSelector} = "${targetValue}"`);
+        break;
+      case "focus":
+        break;
+      default:
+        break;
+    }
+  } catch (error) {
+    console.error(
+      `❌ Lỗi khi tương tác với ${targetSelector} "${targetValue}":`,
+      error
+    );
+  }
+};
+
+const interact = async (
+  event,
+  selectedProfiles,
+  action,
+  targetSelector,
+  targetValue,
+  isSerial = false,
+  delay = false
+) => {
+  if (isSerial) {
+    for (const profile of selectedProfiles) {
+      await _interact(event, profile, action, targetSelector, targetValue);
+      if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
+    }
+    return;
+  } else {
+    selectedProfiles.forEach(async (profile) => {
+      _interact(event, profile, action, targetSelector, targetValue);
+    });
+    return;
+  }
+};
+
 ipcMain.on("actions", (event, data) => {
   const { action, actionData, doActionSerial, delayValue, selectedProfiles } =
     data;
@@ -419,6 +562,22 @@ ipcMain.on("actions", (event, data) => {
         doActionSerial,
         delayValue
       );
+      break;
+    case "interact":
+      const interactionAction = actionData.interactionAction;
+      const interactionSelector = actionData.interactionSelector;
+      const interactionTarget = actionData.interactionTarget;
+      interact(
+        event,
+        selectedProfiles,
+        interactionAction,
+        interactionSelector,
+        interactionTarget,
+        doActionSerial,
+        delayValue
+      );
+      console.log("Interact action", copyData);
+
       break;
     default:
       console.log("Action default");

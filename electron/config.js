@@ -10,9 +10,10 @@ const configPath = path.join(exeDir, "config.json");
 
 // Giá trị mặc định của config
 const defaultConfig = {
+  excelFile: null,
   window: {
     width: 600,
-    height: 450,
+    height: 500,
     alwaysOnTop: false
   }
 };

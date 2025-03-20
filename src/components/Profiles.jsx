@@ -1,11 +1,11 @@
-import { SyncOutlined } from "@ant-design/icons";
-import { Card, Tree, Checkbox } from "antd";
+import { CopyOutlined, SyncOutlined } from "@ant-design/icons";
+import { Card, Tree, Checkbox, Tooltip } from "antd";
 import { Fragment, useEffect, useRef, useState } from "react";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import PerfectScrollbar from "react-perfect-scrollbar";
 
 const Profiles = (props) => {
-  const { setSelectProfiles, selectProfiles } = props;
+  const { setSelectProfiles, selectProfiles, copyData } = props;
   const [profilesData, setProfiles] = useState([]);
   const [checked, setChecked] = useState([]);
   const [isIndeterminate, setIsIndeterminate] = useState(false);
@@ -35,9 +35,9 @@ const Profiles = (props) => {
 
   useEffect(() => {
     const handleResize = () => {
-      setHeight(window.innerHeight - 40);
+      setHeight(window.innerHeight - 60);
       if (scrollbarRef.current) {
-        scrollbarRef.current.update();
+        scrollbarRef.current._ps.update();
       }
     };
 
@@ -117,6 +117,18 @@ const Profiles = (props) => {
               treeData={profilesData}
               switcherIcon={false}
               checkedKeys={checked}
+              titleRender={(node) => {
+                return (
+                  <span>
+                    {node.title}
+                    {copyData?.[node.key] && (
+                      <Tooltip title={copyData[node.key]}>
+                        <CopyOutlined style={{ marginLeft: 5 }} />
+                      </Tooltip>
+                    )}
+                  </span>
+                );
+              }}
             />
           </PerfectScrollbar>
         </div>

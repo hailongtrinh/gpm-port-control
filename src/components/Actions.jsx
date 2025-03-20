@@ -1,51 +1,44 @@
-import { DownOutlined } from "@ant-design/icons";
+import { CloseOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
+  Checkbox,
   Col,
-  Dropdown,
-  Select,
   Input,
   Row,
+  Select,
   Space,
-  Switch
+  Switch,
+  Tooltip
 } from "antd";
 import { Fragment, useEffect, useState } from "react";
-import * as XLSX from "xlsx";
-import { Checkbox } from "antd";
-import { set } from "lodash";
+
+const shortenText = (text, maxLength = 30) => {
+  if (text.length <= maxLength) return text;
+
+  const keepLength = Math.floor((maxLength - 3) / 2); // Chia đôi khoảng giữ lại
+  return text.slice(0, keepLength) + "..." + text.slice(-keepLength);
+};
+
 const Actions = (props) => {
-  const { selectedProfiles } = props;
+  const { selectedProfiles, copyData } = props;
+  const [excelFile, setExcelFile] = useState(false);
   const [excelData, setExcelData] = useState([]);
   const [pasteButtonList, setPasteButtonList] = useState([]);
   const [navigateUrlValue, setNavigateUrlValue] = useState("");
   const [delayValue, setDelayValue] = useState("");
   const [doActionSerial, setDoActionSerial] = useState(false);
   const [pastingMode, setPastingMode] = useState(true);
+
+  const [interactionSelector, setInteractionSelector] = useState("xpath");
+  const [interactionTarget, setInteractionTarget] = useState("");
+
   const [typeSelector, setTypeSelector] = useState("xpath");
   const [typeTarget, setTypeTarget] = useState("");
   const [typeValue, setTypeValue] = useState("");
   const [alwayOnTop, setAlwayOnTop] = useState(false);
   const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const binaryStr = e.target.result;
-      const workbook = XLSX.read(binaryStr, { type: "binary" });
-
-      // Lấy dữ liệu từ sheet đầu tiên
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const parsedData = XLSX.utils.sheet_to_json(sheet);
-      const parsedDataArray = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      const firstRow = parsedDataArray?.[0] || [];
-
-      setPasteButtonList(firstRow);
-      setExcelData(parsedData); // Lưu vào state React
-    };
-    reader.readAsBinaryString(file);
+    window.electron.ipcRenderer.send("select-file");
   };
 
   const handleActions = (action, actionData = {}) => {
@@ -60,13 +53,20 @@ const Actions = (props) => {
 
   useEffect(() => {
     window.electron.ipcRenderer.send("get-config");
-
+    window.electron.ipcRenderer.send("reload-excel-file");
     window.electron.ipcRenderer.on("config-data", (event, data) => {
       setAlwayOnTop(data.window?.alwaysOnTop);
     });
 
+    window.electron.ipcRenderer.on("excel-data", (event, data) => {
+      setPasteButtonList(data.pasteButtonList);
+      setExcelData(data.excelData);
+      setExcelFile(data.excelFile);
+    });
+
     return () => {
       window.electron.ipcRenderer.removeAllListeners("config-data");
+      window.electron.ipcRenderer.removeAllListeners("excel-data");
     };
   }, []);
 
@@ -92,7 +92,6 @@ const Actions = (props) => {
         <div
           className="d-flex"
           style={{
-            justifyContent: "space-between",
             alignItems: "center"
           }}
         >
@@ -104,7 +103,51 @@ const Actions = (props) => {
           >
             Excel Data
           </p>
-          <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+          {/* <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} /> */}
+          {excelFile ? (
+            <Fragment>
+              <div
+                style={{
+                  marginLeft: "20px"
+                }}
+              >
+                <Tooltip title={excelFile.path}>
+                  {shortenText(excelFile.name)}
+                </Tooltip>
+
+                <Tooltip title="Remove file">
+                  <Button
+                    type="dashed"
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={() => {
+                      setExcelFile(false);
+                      setExcelData([]);
+                      setPasteButtonList([]);
+                      window.electron.ipcRenderer.send("remove-excel-file");
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip title="Reload file data">
+                  <Button
+                    type="dashed"
+                    size="small"
+                    icon={<SyncOutlined />}
+                    onClick={() => {
+                      window.electron.ipcRenderer.send("reload-excel-file");
+                    }}
+                  />
+                </Tooltip>
+              </div>
+            </Fragment>
+          ) : (
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              size="middle"
+              onClick={handleFileUpload}
+            />
+          )}
         </div>
 
         <Row
@@ -200,6 +243,100 @@ const Actions = (props) => {
             justifyContent: "space-between"
           }}
         >
+          <Col span={24}>
+            <p className="sub-title">Interaction</p>
+          </Col>
+        </Row>
+        <Row
+          style={{
+            marginBottom: "5px"
+          }}
+        >
+          <Col span={7}>
+            <Select
+              defaultValue="xpath"
+              style={{
+                width: "90%"
+              }}
+              onChange={(value) => {
+                setInteractionSelector(value);
+              }}
+              options={[
+                {
+                  value: "xpath",
+                  label: "Xpath"
+                },
+                {
+                  value: "id",
+                  label: "ID"
+                },
+                {
+                  value: "name",
+                  label: "Name"
+                },
+                {
+                  value: "css",
+                  label: "CSS"
+                }
+              ]}
+            />
+          </Col>
+          <Col span={17}>
+            <Input
+              placeholder="Target"
+              value={interactionTarget}
+              onChange={(e) => {
+                setInteractionTarget(e.currentTarget.value);
+              }}
+            />
+
+            <Button
+              onClick={() => {
+                handleActions("interact", {
+                  interactionAction: "copy",
+                  interactionSelector: interactionSelector,
+                  interactionTarget: interactionTarget
+                });
+              }}
+              size="small"
+              className="mr-2"
+            >
+              Copy text
+            </Button>
+            <Button
+              onClick={() => {
+                handleActions("interact", {
+                  interactType: "click",
+                  targetSelector: interactionSelector,
+                  targetValue: interactionTarget
+                });
+              }}
+              size="small"
+              className="mr-2"
+            >
+              Click
+            </Button>
+            <Button
+              onClick={() => {
+                handleActions("interact", {
+                  interactType: "focus",
+                  targetSelector: interactionSelector,
+                  targetValue: interactionTarget
+                });
+              }}
+              size="small"
+              className="mr-2"
+            >
+              Focus
+            </Button>
+          </Col>
+        </Row>
+        <Row
+          style={{
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
           <Col span={8}>
             <p className="sub-title">Typing Data</p>
           </Col>
@@ -259,6 +396,7 @@ const Actions = (props) => {
             />
           </Col>
         </Row>
+
         <Row>
           <Col span={24}>
             <Space.Compact
@@ -287,6 +425,25 @@ const Actions = (props) => {
                 {pastingMode ? "Paste" : "Type"}
               </Button>
             </Space.Compact>
+            <Button
+              onClick={() => {
+                const textData = {};
+                for (const profile of selectedProfiles) {
+                  const textCopy = copyData?.[profile.profileName] || "";
+                  textData[profile.profileName] = textCopy;
+                }
+                handleActions("typing", {
+                  pastingMode,
+                  text: textData,
+                  targetSelector: typeSelector,
+                  targetValue: typeTarget
+                });
+              }}
+              size="small"
+              className="mr-2"
+            >
+              Interaction Text
+            </Button>
             {pasteButtonList.map((buttonName, index) => {
               return (
                 <Button

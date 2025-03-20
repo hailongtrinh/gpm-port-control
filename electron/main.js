@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     }
   });
 
-  //if (app.isPackaged)
+  if (!app.isPackaged)
   mainWindow.webContents.openDevTools();
   mainWindow.loadURL("http://localhost:5173");
 
