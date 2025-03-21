@@ -1,19 +1,20 @@
 {
   "name": "gpm-port-control",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "main": "electron/main.js",
   "type": "module",
+  "description": "GPM Control",
+  "author": "hailongtrinh",
   "scripts": {
     "dev": "concurrently \"yarn start-electron\" \"yarn start-react\"",
     "start-electron": "electron electron/main.js",
-    "start-react": "vite"
+    "start-react": "vite",
+    "build": "electron-builder"
   },
   "dependencies": {
     "antd": "^5.24.3",
     "concurrently": "^9.1.2",
-    "electron": "^35.0.0",
-    "electron-builder": "^25.1.8",
     "lodash": "^4.17.21",
     "puppeteer-core": "^24.4.0",
     "react": "^19.0.0",
@@ -27,6 +28,8 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
     "electronmon": "^2.0.3",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -41,5 +44,15 @@
     "watch": [
       "electron/**/*.js"
     ]
+  },
+  "build": {
+    "appId": "com.halotri.gpmcontrol",
+    "productName": "GPM-Control",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable"
+    }
   }
 }

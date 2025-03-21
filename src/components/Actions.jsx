@@ -1,4 +1,9 @@
-import { CloseOutlined, PlusOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  CloseOutlined,
+  PlusOutlined,
+  SyncOutlined,
+  UploadOutlined
+} from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -9,7 +14,8 @@ import {
   Select,
   Space,
   Switch,
-  Tooltip
+  Tooltip,
+  InputNumber
 } from "antd";
 import { Fragment, useEffect, useState } from "react";
 
@@ -37,6 +43,12 @@ const Actions = (props) => {
   const [typeTarget, setTypeTarget] = useState("");
   const [typeValue, setTypeValue] = useState("");
   const [alwayOnTop, setAlwayOnTop] = useState(false);
+
+  const [tabHandle, setTabHandle] = useState(0);
+  const [tabNavigate, setTabNavigate] = useState(0);
+  const [tabInteraction, setTabInteraction] = useState(0);
+  const [tabType, setTabType] = useState(0);
+
   const handleFileUpload = (event) => {
     window.electron.ipcRenderer.send("select-file");
   };
@@ -59,6 +71,8 @@ const Actions = (props) => {
     });
 
     window.electron.ipcRenderer.on("excel-data", (event, data) => {
+      console.log(data);
+      
       setPasteButtonList(data.pasteButtonList);
       setExcelData(data.excelData);
       setExcelFile(data.excelFile);
@@ -69,6 +83,26 @@ const Actions = (props) => {
       window.electron.ipcRenderer.removeAllListeners("excel-data");
     };
   }, []);
+
+  const switchTab = (tabNumber) => {
+    setTabHandle(tabNumber);
+    setTabNavigate(tabNumber);
+    setTabInteraction(tabNumber);
+    setTabType(tabNumber);
+    handleActions("switch_tab", {
+      tabNumber
+    });
+  };
+
+  const closeTab = (tabNumber) => {
+    setTabHandle(0);
+    setTabNavigate(0);
+    setTabInteraction(0);
+    setTabType(0);
+    handleActions("close_tab", {
+      tabNumber
+    });
+  };
 
   return (
     <Fragment>
@@ -185,26 +219,85 @@ const Actions = (props) => {
           <Col span={12}>
             <p className="sub-title">Tabs</p>
             <div className="d-block">
+              <Tooltip title="New tab">
+                <Button
+                  size="small"
+                  onClick={() => {
+                    handleActions("new_tab");
+                  }}
+                >
+                  <PlusOutlined />
+                </Button>
+              </Tooltip>
+              <Tooltip title="Close last tab">
+                <Button
+                  size="small"
+                  onClick={() => {
+                    closeTab(0);
+                  }}
+                >
+                  x last
+                </Button>
+              </Tooltip>
               <Button
                 size="small"
                 onClick={() => {
-                  handleActions("newtab");
+                  switchTab(0);
                 }}
               >
-                <PlusOutlined />
+                Go last
               </Button>
-              <Button
-                size="small"
-                onClick={() => {
-                  handleActions("close_current_tab");
-                }}
-              >
-                Close tab
-              </Button>
+              <br />
+              <div className="d-flex">
+                <Tooltip title="Tab number - 0 is the last tab">
+                  <InputNumber
+                    size="small"
+                    className="tab-input"
+                    min={0}
+                    value={tabHandle}
+                    onChange={(e) => {
+                      setTabHandle(e);
+                    }}
+                    variant="underlined"
+                  />
+                </Tooltip>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    switchTab(tabHandle);
+                  }}
+                >
+                  Switch
+                </Button>
+                <Tooltip title="Close tab">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      closeTab(tabHandle);
+                    }}
+                  >
+                    x
+                  </Button>
+                </Tooltip>
+              </div>
             </div>
           </Col>
           <Col span={12}>
-            <p className="sub-title">Navigate</p>
+            <div className="sub-title">
+              Navigate
+              <Tooltip title="0 is the last tab">
+                <InputNumber
+                  size="small"
+                  className="tab-input ml-10"
+                  min={0}
+                  value={tabNavigate}
+                  onChange={(e) => {
+                    setTabNavigate(e);
+                  }}
+                  variant="underlined"
+                />
+              </Tooltip>
+            </div>
             <div className="d-block">
               <Input
                 placeholder="Url"
@@ -217,6 +310,7 @@ const Actions = (props) => {
                 size="small"
                 onClick={() => {
                   handleActions("open_url", {
+                    tabNumber: tabNavigate,
                     url: navigateUrlValue
                   });
                 }}
@@ -244,7 +338,21 @@ const Actions = (props) => {
           }}
         >
           <Col span={24}>
-            <p className="sub-title">Interaction</p>
+            <div className="sub-title">
+              Interaction
+              <Tooltip title="0 is the last tab">
+                <InputNumber
+                  size="small"
+                  className="tab-input ml-10"
+                  min={0}
+                  value={tabInteraction}
+                  onChange={(e) => {
+                    setTabInteraction(e);
+                  }}
+                  variant="underlined"
+                />
+              </Tooltip>
+            </div>
           </Col>
         </Row>
         <Row
@@ -293,6 +401,7 @@ const Actions = (props) => {
             <Button
               onClick={() => {
                 handleActions("interact", {
+                  tabNumber: tabInteraction,
                   interactionAction: "copy",
                   interactionSelector: interactionSelector,
                   interactionTarget: interactionTarget
@@ -306,6 +415,7 @@ const Actions = (props) => {
             <Button
               onClick={() => {
                 handleActions("interact", {
+                  tabNumber: tabInteraction,
                   interactType: "click",
                   targetSelector: interactionSelector,
                   targetValue: interactionTarget
@@ -319,6 +429,7 @@ const Actions = (props) => {
             <Button
               onClick={() => {
                 handleActions("interact", {
+                  tabNumber: tabInteraction,
                   interactType: "focus",
                   targetSelector: interactionSelector,
                   targetValue: interactionTarget
@@ -337,10 +448,24 @@ const Actions = (props) => {
             justifyContent: "space-between"
           }}
         >
-          <Col span={8}>
-            <p className="sub-title">Typing Data</p>
+          <Col span={12}>
+            <div className="sub-title">
+              Typing Data
+              <Tooltip title="0 is the last tab">
+                <InputNumber
+                  size="small"
+                  className="tab-input ml-10"
+                  min={0}
+                  value={tabType}
+                  onChange={(e) => {
+                    setTabType(e);
+                  }}
+                  variant="underlined"
+                />
+              </Tooltip>
+            </div>
           </Col>
-          <Col span={10}>
+          <Col span={12}>
             <Checkbox
               onChange={() => {
                 setPastingMode(!pastingMode);
@@ -415,6 +540,7 @@ const Actions = (props) => {
                 type="primary"
                 onClick={() => {
                   handleActions("typing", {
+                    tabNumber: tabType,
                     pastingMode,
                     text: typeValue,
                     targetSelector: typeSelector,
@@ -433,6 +559,7 @@ const Actions = (props) => {
                   textData[profile.profileName] = textCopy;
                 }
                 handleActions("typing", {
+                  tabNumber: tabType,
                   pastingMode,
                   text: textData,
                   targetSelector: typeSelector,
@@ -459,6 +586,7 @@ const Actions = (props) => {
                       textData[profile.profileName] = profileData[buttonName];
                     }
                     handleActions("typing", {
+                      tabNumber: tabType,
                       pastingMode,
                       text: textData,
                       targetSelector: typeSelector,

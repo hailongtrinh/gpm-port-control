@@ -13,7 +13,7 @@ const defaultConfig = {
   excelFile: null,
   window: {
     width: 600,
-    height: 500,
+    height: 550,
     alwaysOnTop: false
   }
 };

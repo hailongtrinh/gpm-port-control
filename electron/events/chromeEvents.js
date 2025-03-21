@@ -1,5 +1,5 @@
-import { ipcMain } from "electron";
 import { exec } from "child_process";
+import { ipcMain } from "electron";
 import puppeteer from "puppeteer-core";
 // Hàm lấy danh sách PID của Chrome
 function getChromeRunnings() {
@@ -79,6 +79,7 @@ ipcMain.on("get-chrome-profiles", async (event) => {
         });
       }
     }
+
     event.reply("chrome-profiles", results);
   } catch (error) {
     return `Lỗi: ${error}`;
@@ -125,50 +126,113 @@ const newTab = async (selectedProfiles, isSerial = false, delay = false) => {
   }
 };
 
-const _closeTab = async (profile) => {
+const _closeTab = async (profile, tabNumber) => {
   if (!connectedBrowsers[profile.profileName]) {
     await connectBrowser(profile.profileName, profile.remoteIP);
   }
   const browser = connectedBrowsers[profile.profileName];
 
-  const pages = await browser.pages(); // Lấy tất cả tab
+  const pages = await browser.pages(); // Lấy danh sách tab
   console.log(`${profile.profileName} có ${pages.length} tab`);
 
-  for (const page of pages) {
-    try {
-      await page.bringToFront(); // Chuyển tab lên trước
-      await new Promise((r) => setTimeout(r, 500)); // Chờ 0.5s để tránh lỗi
-      const isActive = await page.evaluate(
-        () => document.visibilityState === "visible"
-      ); // Kiểm tra tab đang hiện
+  let indexToClose;
+  if (tabNumber === 0) {
+    indexToClose = pages.length - 1; // Đóng tab cuối cùng
+  } else {
+    indexToClose = tabNumber - 1; // Vì tabNumber = 1 là tab đầu tiên (index = 0)
+  }
 
-      if (isActive) {
-        await page.close();
-        console.log(`✅ Đã đóng tab active của ${profile.profileName}`);
-        break;
-      }
-    } catch (error) {
-      console.error("❌ Lỗi khi đóng tab:", error);
-    }
+  if (indexToClose < 0 || indexToClose >= pages.length) {
+    console.error(`❌ Tab số ${tabNumber} không hợp lệ`);
+    return;
+  }
+
+  try {
+    const pageToClose = pages[indexToClose]; // Lấy tab theo index
+    await pageToClose.bringToFront(); // Chuyển tab lên trước (không bắt buộc)
+    await new Promise((r) => setTimeout(r, 500)); // Chờ 0.5s để tránh lỗi
+    await pageToClose.close(); // Đóng tab
+    _switchTab(profile, 0); // Chuyển về tab cuối cùng
+    console.log(`✅ Đã đóng tab số ${tabNumber} của ${profile.profileName}`);
+  } catch (error) {
+    console.error(`❌ Lỗi khi đóng tab số ${tabNumber}:`, error);
   }
 };
 
-const closeTab = async (selectedProfiles, isSerial = false, delay = false) => {
+const closeTab = async (
+  selectedProfiles,
+  tabNumber = 0,
+  isSerial = false,
+  delay = false
+) => {
   if (isSerial) {
     for (const profile of selectedProfiles) {
-      await _closeTab(profile);
+      await _closeTab(profile, tabNumber);
       if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
     }
     return;
   } else {
     selectedProfiles.forEach(async (profile) => {
-      _closeTab(profile);
+      _closeTab(profile, tabNumber);
     });
     return;
   }
 };
 
-const _openUrl = async (profile, url, newTab = false) => {
+const _switchTab = async (profile, tabNumber) => {
+  if (!connectedBrowsers[profile.profileName]) {
+    await connectBrowser(profile.profileName, profile.remoteIP);
+  }
+  const browser = connectedBrowsers[profile.profileName];
+
+  const pages = await browser.pages(); // Lấy danh sách tab
+  console.log(`${profile.profileName} có ${pages.length} tab`);
+
+  let indexToSwitch;
+  if (tabNumber === 0) {
+    indexToSwitch = pages.length - 1; // Chuyển sang tab cuối cùng
+  } else {
+    indexToSwitch = tabNumber - 1; // Vì tabNumber = 1 là tab đầu tiên (index = 0)
+  }
+
+  if (indexToSwitch < 0 || indexToSwitch >= pages.length) {
+    console.error(`❌ Tab số ${tabNumber} không hợp lệ`);
+    return;
+  }
+
+  try {
+    const pageToSwitch = pages[indexToSwitch]; // Lấy tab theo index
+    await pageToSwitch.bringToFront(); // Chuyển tab lên trước
+    console.log(
+      `✅ Đã chuyển sang tab số ${tabNumber} của ${profile.profileName}`
+    );
+    return pageToSwitch;
+  } catch (error) {
+    console.error(`❌ Lỗi khi chuyển tab số ${tabNumber}:`, error);
+  }
+};
+
+const switchTab = async (
+  selectedProfiles,
+  tabNumber = 0,
+  isSerial = false,
+  delay = false
+) => {
+  if (isSerial) {
+    for (const profile of selectedProfiles) {
+      await _switchTab(profile, tabNumber);
+      if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
+    }
+    return;
+  } else {
+    selectedProfiles.forEach(async (profile) => {
+      _switchTab(profile, tabNumber);
+    });
+    return;
+  }
+};
+
+const _openUrl = async (profile, url, newTab = false, tabNumber = 0) => {
   if (!connectedBrowsers[profile.profileName]) {
     await connectBrowser(profile.profileName, profile.remoteIP);
   }
@@ -178,25 +242,11 @@ const _openUrl = async (profile, url, newTab = false) => {
   if (newTab) {
     page = await browser.newPage(); // Mở tab mới nếu newTab = true
     console.log("🆕 Đã mở tab mới.");
+    await page.bringToFront(); // Đưa tab lên trước
   } else {
-    const pages = await browser.pages();
-
-    // Kiểm tra tab đang active
-    for (const p of pages) {
-      const isActive = await p.evaluate(() => document.hasFocus());
-      if (isActive) {
-        page = p;
-        break;
-      }
-    }
-
-    if (!page) {
-      console.log("⚠️ Không tìm thấy tab active, dùng tab cuối cùng.");
-      page = pages[pages.length - 1] || (await browser.newPage());
-    }
+    page = await _switchTab(profile, tabNumber); // Chuyển đến tab cũ nếu newTab = false
   }
 
-  await page.bringToFront(); // Đưa tab lên trước
   await page.goto(url, { waitUntil: "load" }); // Điều hướng đến URL
   console.log(
     `✅ Đã mở ${url} ${newTab ? "trong tab mới" : "trong tab hiện tại"}`
@@ -207,18 +257,19 @@ const openUrl = async (
   selectedProfiles,
   url,
   newTab = false,
+  tabNumber = 0,
   isSerial = false,
   delay = false
 ) => {
   if (isSerial) {
     for (const profile of selectedProfiles) {
-      await _openUrl(profile, url, newTab);
+      await _openUrl(profile, url, newTab, tabNumber);
       if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
     }
     return;
   } else {
     selectedProfiles.forEach(async (profile) => {
-      _openUrl(profile, url, newTab);
+      _openUrl(profile, url, newTab, tabNumber);
     });
     return;
   }
@@ -229,31 +280,11 @@ const _typing = async (
   text,
   selectorType,
   selectorValue,
-  pastingMode = true
+  pastingMode = true,
+  tabNumber = 0
 ) => {
   try {
-    if (!connectedBrowsers[profile.profileName]) {
-      await connectBrowser(profile.profileName, profile.remoteIP);
-    }
-    const browser = connectedBrowsers[profile.profileName];
-    let page;
-
-    const pages = await browser.pages();
-    if (pages.length === 0) {
-      console.error("⚠️ Không có tab nào mở. Mở tab mới...");
-      page = await browser.newPage();
-    } else {
-      for (const p of pages) {
-        const isActive = await p.evaluate(() => document.hasFocus());
-        if (isActive) {
-          page = p;
-          break;
-        }
-      }
-      if (!page) page = pages[pages.length - 1]; // Nếu không tìm thấy tab active, lấy tab cuối cùng
-    }
-
-    await page.bringToFront();
+    const page = await _switchTab(profile, tabNumber);
 
     // Chống bị phát hiện là bot
     await page.evaluateOnNewDocument(() => {
@@ -358,6 +389,7 @@ const typing = async (
   targetSelector,
   targetValue,
   pastingMode = true,
+  tabNumber = 0,
   isSerial = false,
   delay = false
 ) => {
@@ -372,7 +404,8 @@ const typing = async (
         textValue,
         targetSelector,
         targetValue,
-        pastingMode
+        pastingMode,
+        tabNumber
       );
       if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
     }
@@ -382,7 +415,14 @@ const typing = async (
       if (typeof text === "object") {
         textValue = text?.[profile.profileName] ?? "";
       }
-      _typing(profile, textValue, targetSelector, targetValue, pastingMode);
+      _typing(
+        profile,
+        textValue,
+        targetSelector,
+        targetValue,
+        pastingMode,
+        tabNumber
+      );
     });
     return;
   }
@@ -395,31 +435,11 @@ const _interact = async (
   profile,
   action,
   targetSelector,
-  targetValue
+  targetValue,
+  tabNumber = 0
 ) => {
   try {
-    if (!connectedBrowsers[profile.profileName]) {
-      await connectBrowser(profile.profileName, profile.remoteIP);
-    }
-    const browser = connectedBrowsers[profile.profileName];
-    let page;
-
-    const pages = await browser.pages();
-    if (pages.length === 0) {
-      console.error("⚠️ Không có tab nào mở. Mở tab mới...");
-      page = await browser.newPage();
-    } else {
-      for (const p of pages) {
-        const isActive = await p.evaluate(() => document.hasFocus());
-        if (isActive) {
-          page = p;
-          break;
-        }
-      }
-      if (!page) page = pages[pages.length - 1]; // Nếu không tìm thấy tab active, lấy tab cuối cùng
-    }
-
-    await page.bringToFront();
+    const page = await _switchTab(profile, tabNumber);
 
     // Chống bị phát hiện là bot
     await page.evaluateOnNewDocument(() => {
@@ -514,18 +534,26 @@ const interact = async (
   action,
   targetSelector,
   targetValue,
+  tabNumber = 0,
   isSerial = false,
   delay = false
 ) => {
   if (isSerial) {
     for (const profile of selectedProfiles) {
-      await _interact(event, profile, action, targetSelector, targetValue);
+      await _interact(
+        event,
+        profile,
+        action,
+        targetSelector,
+        targetValue,
+        tabNumber
+      );
       if (delay) await new Promise((r) => setTimeout(r, delay * 1000));
     }
     return;
   } else {
     selectedProfiles.forEach(async (profile) => {
-      _interact(event, profile, action, targetSelector, targetValue);
+      _interact(event, profile, action, targetSelector, targetValue, tabNumber);
     });
     return;
   }
@@ -537,18 +565,32 @@ ipcMain.on("actions", (event, data) => {
   console.log(data);
 
   switch (action) {
-    case "newtab":
+    case "new_tab":
       newTab(selectedProfiles, doActionSerial, delayValue);
       break;
-    case "close_current_tab":
-      closeTab(selectedProfiles);
+    case "close_tab":
+      const closeTabNumber = actionData?.tabNumber || 0;
+      closeTab(selectedProfiles, closeTabNumber, doActionSerial, delayValue);
+      break;
+    case "switch_tab":
+      const switchTabNumber = actionData?.tabNumber || 0;
+      switchTab(selectedProfiles, switchTabNumber, doActionSerial, delayValue);
       break;
     case "open_url":
+      const openTabNumber = actionData?.tabNumber || 0;
       const url = actionData.url;
       const openInNewTab = actionData?.newTab || false;
-      openUrl(selectedProfiles, url, openInNewTab, doActionSerial, delayValue);
+      openUrl(
+        selectedProfiles,
+        url,
+        openInNewTab,
+        openTabNumber,
+        doActionSerial,
+        delayValue
+      );
       break;
     case "typing":
+      const typeTabNumber = actionData?.tabNumber || 0;
       const text = actionData.text;
       const targetSelector = actionData.targetSelector;
       const targetValue = actionData.targetValue;
@@ -559,11 +601,13 @@ ipcMain.on("actions", (event, data) => {
         targetSelector,
         targetValue,
         pastingMode,
+        typeTabNumber,
         doActionSerial,
         delayValue
       );
       break;
     case "interact":
+      const interactionTabNumber = actionData?.tabNumber || 0;
       const interactionAction = actionData.interactionAction;
       const interactionSelector = actionData.interactionSelector;
       const interactionTarget = actionData.interactionTarget;
@@ -573,6 +617,7 @@ ipcMain.on("actions", (event, data) => {
         interactionAction,
         interactionSelector,
         interactionTarget,
+        interactionTabNumber,
         doActionSerial,
         delayValue
       );
