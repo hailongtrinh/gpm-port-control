@@ -48,6 +48,7 @@
   "build": {
     "appId": "com.halotri.gpmcontrol",
     "productName": "GPM-Control",
+    "asar": false,
     "directories": {
       "output": "dist"
     },
