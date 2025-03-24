@@ -71,7 +71,6 @@ const Actions = (props) => {
     });
 
     window.electron.ipcRenderer.on("excel-data", (event, data) => {
-      console.log(data);
       
       setPasteButtonList(data.pasteButtonList);
       setExcelData(data.excelData);

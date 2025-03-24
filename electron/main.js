@@ -27,10 +27,14 @@ app.whenReady().then(async () => {
     }
   });
 
-  if (!app.isPackaged)
-  mainWindow.webContents.openDevTools();
-  mainWindow.loadURL("http://localhost:5173");
-
+  if (!app.isPackaged) {
+    // Chạy dev mode
+    mainWindow.webContents.openDevTools();
+    mainWindow.loadURL("http://localhost:5173");
+  } else {
+    // Chạy chế độ build
+    mainWindow.loadURL(`file://${path.join(__dirname, "../dist/react/index.html")}`);
+  }
   ipcMain.on("toggle-always-on-top", () => {
     const isAlwaysOnTop = mainWindow.isAlwaysOnTop();
     mainWindow.setAlwaysOnTop(!isAlwaysOnTop);
