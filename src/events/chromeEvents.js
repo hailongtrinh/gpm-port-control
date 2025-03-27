@@ -19,13 +19,19 @@ function getChromeRunnings() {
           );
         })
         .map((line) => {
+          console.log(line);
+          
           const parts = line.split(/\s+/);
           let profileName = `noname_${parts[1]}`;
           if (line.includes("- GPM-Browser")) {
             const regex = /\d{1,2}:\d{2}:\d{2} (.+?)\s*-/;
             const match = line.match(regex);
+            console.log(match);
+            
             profileName = match ? match[1].trim() : `noname_${parts[1]}`;
           }
+          console.log(profileName);
+          
           return {
             pid: parts[1],
             profileName: profileName

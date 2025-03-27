@@ -32,8 +32,10 @@ app.whenReady().then(async () => {
     mainWindow.webContents.openDevTools();
     mainWindow.loadURL("http://localhost:5173");
   } else {
+    console.log(__dirname, `file://${path.join(__dirname, "../frontend/index.html")}`);
+    
     // Chạy chế độ build
-    mainWindow.loadURL(`file://${path.join(__dirname, "../dist/react/index.html")}`);
+    mainWindow.loadURL(`file://${path.join(__dirname, "../frontend/index.html")}`);
   }
   ipcMain.on("toggle-always-on-top", () => {
     const isAlwaysOnTop = mainWindow.isAlwaysOnTop();

@@ -2,66 +2,49 @@
   "name": "gpm-port-control",
   "private": true,
   "version": "1.0.0",
-  "main": "electron/main.js",
+  "main": "src/main.js",
   "type": "module",
   "description": "GPM Control",
   "author": "hailongtrinh",
   "scripts": {
     "dev": "concurrently \"yarn start-electron\" \"yarn start-react\"",
-    "start-electron": "wait-on http://localhost:5173 && electron electron/main.js",
-    "start-react": "vite",
+    "start-electron": "wait-on http://localhost:5173 && electron src/main.js",
+    "start-react": "cd frontend && yarn dev",
     "build": "yarn build-react && electron-builder",
-    "build-react": "vite build"
+    "build-react": "cd frontend && yarn build"
   },
   "dependencies": {
-    "antd": "^5.24.3",
     "concurrently": "^9.1.2",
-    "debug": "^4.4.0",
     "lodash": "^4.17.21",
     "puppeteer-core": "^24.4.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-perfect-scrollbar": "^1.5.8",
     "wait-on": "^8.0.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.0.0",
     "electron-builder": "^25.1.8",
     "electronmon": "^2.0.3",
     "eslint": "^9.21.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^15.15.0",
-    "vite": "^6.2.0"
+    "globals": "^15.15.0"
   },
   "electronmon": {
     "ignore": [
-      "electron/config.json"
+      "src/config.json"
     ],
     "watch": [
-      "electron/**/*.js"
+      "src/**/*.js"
     ]
   },
   "build": {
     "appId": "com.halotri.gpmcontrol",
     "productName": "GPM-Control",
+    "asar": true,
     "files": [
-      "electron/**/*",
-      "dist/react/**/*",
-      "!node_modules/react",
-      "!node_modules/react-dom",
-      "!node_modules/antd",
-      "!node_modules/react-perfect-scrollbar"
-    ],
-    "extraFiles": [
+      "src/**/*",
       {
-        "from": "dist/react",
-        "to": "app/dist/react"
+        "from": "dist/frontend",
+        "to": "frontend"
       }
     ],
     "directories": {
